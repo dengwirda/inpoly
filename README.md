@@ -2,7 +2,7 @@
 
 A fast 'point-in-polygon' implementation in <a href="http://www.mathworks.com">`MATLAB`</a> / <a href="https://www.gnu.org/software/octave">`OCTAVE`</a>.
 
-The `INPOLY` library returns the "inside/outside" status for a set of vertices `VERT` and a general polygon (`PSLG`) embedded in the two-dimensional plane. General non-convex and multiply-connected polygonal regions can be handled. `INPOLY` is intended as a (very) fast replacement for `MATLAB`'s default `INPOLYGON` routine.
+`INPOLY` returns the "inside/outside" status for a set of vertices `VERT` and a general polygon (`PSLG`) embedded in the two-dimensional plane. General non-convex and multiply-connected polygonal regions can be handled. `INPOLY` is intended as a (very) fast replacement for `MATLAB`'s default `INPOLYGON` routine.
 
 `INPOLY` is based on a 'crossing-number' test, counting the number of times a line extending from each point past the right-most region of the polygon intersects with the polygonal boundary. Points with odd counts are 'inside'. A simple implementation requires that each edge intersection be checked for each point, leading to (slow) `O(N*M)` overall complexity.
 
@@ -16,6 +16,7 @@ polydemo(1); % blah
 polydemo(2); % blah
 polydemo(3); % blah
 ````
+For good performance in `OCTAVE`, `INPOLY` can be compiled from `C++` as an `*.oct` file. See documentation on `MKOCTFILE` for additional information. Typically, `MATLAB`'s in-built `JIT`-acceleration leads to good performance by default.
 
 ## `License`
 
