@@ -12,9 +12,9 @@ This implementation seeks to improve these bounds. Query points are sorted by `y
 
 After downloading and unzipping the current <a href="https://github.com/dengwirda/inpoly/archive/master.zip">repository</a>, navigate to the installation directory within <a href="http://www.mathworks.com">`MATLAB`</a> / <a href="https://www.gnu.org/software/octave">`OCTAVE`</a> and run the set of examples contained in `polydemo.m`:
 ````
-polydemo(1); % blah
-polydemo(2); % blah
-polydemo(3); % blah
+polydemo(1); % a simple example
+polydemo(2); % multiply-connected domains
+polydemo(3); % speed comparison
 ````
 For good performance in `OCTAVE`, `INPOLY` can be compiled from `C++` as an `*.oct` file. See documentation on `MKOCTFILE` for additional information. Typically, `MATLAB`'s in-built `JIT`-acceleration leads to good performance by default.
 
