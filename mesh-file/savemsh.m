@@ -51,16 +51,35 @@ function savemsh(name,mesh)
 %       "point-indices" associated with the K-TH pyra, and 
 %       INDEX(K,6) is an ID tag for the K-TH pyra.
 %
+%   MESH.BOUND.INDEX - [NBx 3] array of "boundary" indexing
+%       in the domain, indicating how elements in the 
+%       geometry are associated with various enclosed areas
+%       /volumes, herein known as "parts". INDEX(:,1) is an 
+%       array of "part" ID's, INDEX(:,2) is an array of 
+%       element numbering and INDEX(:,3) is an array of 
+%       element "tags", describing which element "kind" is 
+%       numbered via INDEX(:,2). Element tags are defined 
+%       via a series of constants instantiated in LIBDATA. 
+%       In the default case, where BOUND is not specified, 
+%       all elements in the geometry are assumed to define
+%       the boundaries of enclosed "parts".
+%
 %   MESH.VALUE - [NPxNV] array of "values" associated with
 %       the vertices of the mesh. NV values are associated
 %       with each vertex.
 %
+%   MESH.SLOPE - [NPx 1] array of "slopes" associated with
+%       the vertices of the mesh. Slope values define the
+%       gradient-limits ||dh/dx|| used by the Eikonal solver
+%       MARCHE.
 %
 %   .IF. MESH.MSHID == 'ELLIPSOID-MESH':
 %   -----------------------------------
 %
 %   MESH.RADII - [ 3x 1] array of principle ellipsoid radii.
 %
+%   Additionally, entities described in the 'EUCLIDEAN-MESH'
+%   data-type are optionally written.
 %
 %   .IF. MESH.MSHID == 'EUCLIDEAN-GRID':
 %   .OR. MESH.MSHID == 'ELLIPSOID-GRID':
@@ -76,6 +95,11 @@ function savemsh(name,mesh)
 %       the dimensions of the grid. NV values are associated 
 %       with each vertex.
 %
+%   MESH.SLOPE - [NMx 1] array of "slopes" associated with
+%       the vertices of the grid, where NM is the product of
+%       the dimensions of the grid. Slope values define the
+%       gradient-limits ||dh/dx|| used by the Eikonal solver 
+%       MARCHE.
 %
 %   See also JIGSAW, LOADMSH
 %
@@ -83,7 +107,7 @@ function savemsh(name,mesh)
 %-----------------------------------------------------------
 %   Darren Engwirda
 %   github.com/dengwirda/jigsaw-matlab
-%   07-Sep-2018
+%   20-Aug-2019
 %   darren.engwirda@columbia.edu
 %-----------------------------------------------------------
 %
@@ -127,18 +151,24 @@ function savemsh(name,mesh)
     switch (upper(mshID))
     
     case 'EUCLIDEAN-MESH'
-        save_euclidean_mesh(ffid,nver,mesh) ;     
+        save_mesh_format( ...
+            ffid,nver,mesh,'EUCLIDEAN-MESH') ;     
     case 'EUCLIDEAN-GRID'
-        save_euclidean_grid(ffid,nver,mesh) ;
+        save_grid_format( ...
+            ffid,nver,mesh,'EUCLIDEAN-GRID') ;
     case 'EUCLIDEAN-DUAL'
-       %save_euclidean_dual(ffid,nver,mesh) ;
+       %save_dual_format( ...
+       %    ffid,nver,mesh,'EUCLIDEAN-DUAL') ;
     
     case 'ELLIPSOID-MESH'
-        save_ellipsoid_mesh(ffid,nver,mesh) ;
+        save_mesh_format( ...
+            ffid,nver,mesh,'ELLIPSOID-MESH') ;     
     case 'ELLIPSOID-GRID'
-        save_ellipsoid_grid(ffid,nver,mesh) ;
-    case 'ELLISPOID-DUAL' 
-       %save_ellipsoid_dual(ffid,nver,mesh) ;
+        save_grid_format( ...
+            ffid,nver,mesh,'ELLIPSOID-GRID') ;
+    case 'ELLIPSOID-DUAL'
+       %save_dual_format( ...
+       %    ffid,nver,mesh,'ELLIPSOID-DUAL') ;
     
     otherwise
         error('Invalid mshID!') ;
@@ -159,12 +189,40 @@ function savemsh(name,mesh)
     
 end
         
-function save_euclidean_mesh(ffid,nver,mesh)
-%SAVE-EUCLIDEAN-MESH save mesh data in EUCLDIEAN-MESH format
+function save_mesh_format(ffid,nver,mesh,kind)
+%SAVE-MESH-FORMAT save mesh data in unstructured-mesh format
+  
+    switch (upper(kind))
+    case 'EUCLIDEAN-MESH'
+            fprintf( ...
+        ffid,'MSHID=%u;EUCLIDEAN-MESH\n',nver) ;
     
-    fprintf(ffid,'MSHID=%u;EUCLIDEAN-MESH \n',nver);
+    case 'ELLIPSOID-MESH'
+            fprintf( ...
+        ffid,'MSHID=%u;ELLIPSOID-MESH\n',nver) ;
     
-    npts = +0;
+    end
+ 
+    npts = +0 ;
+ 
+    if (isfield(mesh,'radii') && ...
+            ~isempty(mesh.radii) )
+    
+    %------------------------------------ write "RADII" data
+        
+        if (~isnumeric(mesh.radii))
+            error('Incorrect input types');
+        end
+        if (ndims(mesh.radii) ~= 2)
+            error('Incorrect dimensions!');
+        end
+        if (numel(mesh.radii) ~= 3)
+            mesh.radii = mesh.radii(1) * ones(+3,+1);
+        end
+        
+        fprintf(ffid,'RADII=%f;%f;%f\n',mesh.radii');
+    
+    end
     
     if (isfield(mesh,'point') && ...
             isfield(mesh.point,'coord') && ...
@@ -243,15 +301,53 @@ function save_euclidean_mesh(ffid,nver,mesh)
         nrow = size(mesh.value,1);
         nval = size(mesh.value,2);
 
-        if (isa(mesh.value, 'double')) 
+        if     (isa(mesh.value, 'double')) 
         vstr = sprintf('%%1.%ug;',+16) ;
-        else
+        elseif (isa(mesh.value, 'single'))
         vstr = sprintf('%%1.%ug;',+ 8) ;
+        elseif (isa(mesh.value,'integer'))
+        vstr = '%d;' ;
+        else
+            error('Incorrect input type!');
         end
         vstr = repmat(vstr,+1,nval) ;
 
         fprintf(ffid,['VALUE=%u;%u','\n'],[nrow,nval]);        
         fprintf(ffid,[vstr(1:end-1),'\n'],mesh.value');
+
+    end
+
+    if (isfield(mesh,'slope'))
+    
+    %------------------------------------ write "SLOPE" data
+        
+        if (~isnumeric(mesh.slope))
+            error('Incorrect input type!');
+        end
+        if (ndims(mesh.slope) ~= 2)
+            error('Incorrect dimensions!');
+        end
+        if (size(mesh.slope,1) ~= npts && ...
+            size(mesh.slope,1) ~= +1 )
+            error('Incorrect dimensions!');
+        end
+            
+        nrow = size(mesh.slope,1);
+        nval = size(mesh.slope,2);
+
+        if     (isa(mesh.slope, 'double')) 
+        vstr = sprintf('%%1.%ug;',+16) ;
+        elseif (isa(mesh.slope, 'single'))
+        vstr = sprintf('%%1.%ug;',+ 8) ;
+        elseif (isa(mesh.slope,'integer'))
+        vstr = '%d;' ;
+        else
+            error('Incorrect input type!');
+        end
+        vstr = repmat(vstr,+1,nval) ;
+
+        fprintf(ffid,['SLOPE=%u;%u','\n'],[nrow,nval]);        
+        fprintf(ffid,[vstr(1:end-1),'\n'],mesh.slope');
 
     end
     
@@ -485,39 +581,40 @@ function save_euclidean_mesh(ffid,nver,mesh)
         end
         
         index = mesh.bound.index ;
-        
-        m = true (size(index,1),1) ; 
-        k = 1 ;    
-        while k < size(index,1)
-            m(k) = false ; 
-            k = k + index(k,2) + 1 ;
-        end
-        
-        index(m,1:1) = ...
-        index(m,1:1)-1 ; % zero-indexing!
+        index(:,2:2) = ...
+        index(:,2:2)-1 ; % zero-indexing!
            
         fprintf( ...
         ffid,['BOUND=%u','\n'],size(index,1)) ;        
         
         fprintf(ffid, ...
-        [repmat('%u;',1,1),'%u','\n'],index') ;
+        [repmat('%u;',1,2),'%u','\n'],index') ;
 
     end
     
 end
 
-function save_ellipsoid_mesh(ffid,nver,mesh)
-%SAVE-ELLIPSOID-MESH save mesh data in ELLIPSOID-MESH format
+function save_grid_format(ffid,nver,mesh,kind)
+%SAVE-GRID-FORMAT save mesh class in rectilinear-grid format
     
-    fprintf(ffid,'MSHID=%u;ELLIPSOID-MESH \n',nver );
+    switch (upper(kind))
+    case 'EUCLIDEAN-GRID'
+            fprintf( ...
+        ffid,'MSHID=%u;EUCLIDEAN-GRID\n',nver) ;
     
-    npts = +0;
+    case 'ELLIPSOID-GRID'
+            fprintf( ...
+        ffid,'MSHID=%u;ELLIPSOID-GRID\n',nver) ;
+    
+    end
+    
+    dims = [] ;
     
     if (isfield(mesh,'radii') && ...
             ~isempty(mesh.radii) )
     
     %------------------------------------ write "RADII" data
-            
+        
         if (~isnumeric(mesh.radii))
             error('Incorrect input types');
         end
@@ -525,57 +622,19 @@ function save_ellipsoid_mesh(ffid,nver,mesh)
             error('Incorrect dimensions!');
         end
         if (numel(mesh.radii) ~= 3)
-            error('Incorrect dimensions!');
+            mesh.radii = mesh.radii(1) * ones(+3,+1);
         end
         
         fprintf(ffid,'RADII=%f;%f;%f\n',mesh.radii');
     
     end
-
-%-- to-do: coast edges...
-    
-end
-
-function save_euclidean_grid(ffid,nver,mesh)
-%SAVE-EUCLIDEAN-GRID save mesh data in EUCLIDEAN-GRID format
-
-    save_monotonic_grid(ffid,nver,mesh, ...
-        'EUCLIDEAN-GRID') ;
-
-end
-
-function save_ellipsoid_grid(ffid,nver,mesh)
-%SAVE-ELLIPSOID-GRID save mesh data in ELLIPSOID-GRID format
-
-    save_monotonic_grid(ffid,nver,mesh, ...
-        'ELLIPSOID-GRID') ;
-
-end
-
-function save_monotonic_grid(ffid,nver,mesh, ...
-                             kind)
-%SAVE-MONOTONIC-GRID save mesh data in MONOTONIC-GRID format
-% ==> EUCLIDEAN-GRID, ELLIPSOID-GRID, etc...
-    
-    switch (upper(kind))
-    case 'EUCLIDEAN-GRID'
-        fprintf( ...
-    ffid,'MSHID=%u;EUCLIDEAN-GRID\n',nver) ;
-    
-    case 'ELLIPSOID-GRID'
-        fprintf( ...
-    ffid,'MSHID=%u;ELLIPSOID-GRID\n',nver) ;
-    
-    end
-    
-    dims = [] ;
     
     if (isfield(mesh,'point') && ...
             isfield(mesh.point,'coord') && ...
                 ~isempty(mesh.point.coord) )
     
     %------------------------------------ write "COORD" data
-        
+    
         if(~iscell(mesh.point.coord) )
             error('Incorrect input types') ;
         end
@@ -586,7 +645,8 @@ function save_monotonic_grid(ffid,nver,mesh, ...
         
         ndim = length(mesh.point.coord);
         dims = zeros(1,ndim);
-        
+        iord = [2,1,+3:ndim];
+
         fprintf(ffid, ...
         ['NDIMS=%u \n'],length(mesh.point.coord));
         
@@ -597,7 +657,7 @@ function save_monotonic_grid(ffid,nver,mesh, ...
             error('Incorrect dimensions!') ;
         end
         
-        dims(ndim-idim+1) = ...
+        dims(iord(idim)) = ...
             length(mesh.point.coord{idim}) ;
         
         if (isa(mesh.point.coord{idim}, 'double')) 
@@ -607,11 +667,11 @@ function save_monotonic_grid(ffid,nver,mesh, ...
         end
         
         fprintf(ffid,...
-        'COORD=%u;%u\n',[idim,dims(ndim-idim+1)]);
+        'COORD=%u;%u\n', [idim,dims(iord(idim))]);
         
         fprintf(ffid,vstr,mesh.point.coord{idim});
         
-        end
+    end
 
     end
 
@@ -634,14 +694,24 @@ function save_monotonic_grid(ffid,nver,mesh, ...
             nval = size(mesh.value);
         end
         
+        if (isvector(mesh.value))
+        if (prod(nval(1:end-1)) ~= prod(dims))
+            error('Incorrect dimensions!') ;
+        end 
+        else
         if (~all(nval(1:end-1) == dims))
             error('Incorrect dimensions!') ;
         end
+        end
            
-        if (isa(mesh.value, 'double')) 
+        if     (isa(mesh.value, 'double')) 
         vstr = sprintf('%%1.%ug;',+16) ;
-        else
+        elseif (isa(mesh.value, 'single'))
         vstr = sprintf('%%1.%ug;',+ 8) ;
+        elseif (isa(mesh.value,'integer'))
+        vstr = '%d;' ;
+        else
+            error('Incorrect input type!');
         end
         vstr = repmat(vstr,+1,nval(end)) ;
         
@@ -654,7 +724,57 @@ function save_monotonic_grid(ffid,nver,mesh, ...
         fprintf(ffid,[vstr(+1:end-1),'\n'],vals');
 
     end
+
+    if (isfield(mesh,'slope'))
     
+    %------------------------------------ write "SLOPE" data
+            
+        if (~isnumeric(mesh.slope))
+            error('Incorrect input types') ;
+        end
+        if (ndims(mesh.slope) ~= length(dims)+0 && ...
+            ndims(mesh.slope) ~= length(dims)+1 )
+            error('Incorrect dimensions!') ;
+        end
+        
+        if (ndims(mesh.slope) == length(dims))
+            nval = size(mesh.slope);
+            nval = [nval, +1] ;
+        else
+            nval = size(mesh.slope);
+        end
+        
+        if (isvector(mesh.slope))
+        if (prod(nval(1:end-1)) ~= prod(dims))
+            error('Incorrect dimensions!') ;
+        end 
+        else
+        if (~all(nval(1:end-1) == dims))
+            error('Incorrect dimensions!') ;
+        end
+        end
+           
+        if     (isa(mesh.slope, 'double')) 
+        vstr = sprintf('%%1.%ug;',+16) ;
+        elseif (isa(mesh.slope, 'single'))
+        vstr = sprintf('%%1.%ug;',+ 8) ;
+        elseif (isa(mesh.slope,'integer'))
+        vstr = '%d;' ;
+        else
+            error('Incorrect input type!');
+        end
+        vstr = repmat(vstr,+1,nval(end)) ;
+        
+        vals = ...
+        reshape(mesh.slope,[],nval(end)) ;
+
+        fprintf(ffid, ...
+          'SLOPE=%u;%u\n',[prod(dims),nval(end)]); 
+      
+        fprintf(ffid,[vstr(+1:end-1),'\n'],vals');
+
+    end
+   
 end
 
 

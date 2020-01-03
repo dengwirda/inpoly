@@ -51,15 +51,34 @@ function [mesh] = loadmsh(name)
 %       "point-indices" associated with the K-TH pyra, and 
 %       INDEX(K,6) is an ID tag for the K-TH pyra.
 %
+%   MESH.BOUND.INDEX - [NBx 3] array of "boundary" indexing
+%       in the domain, indicating how elements in the 
+%       geometry are associated with various enclosed areas
+%       /volumes, herein known as "parts". INDEX(:,1) is an 
+%       array of "part" ID's, INDEX(:,2) is an array of 
+%       element numbering and INDEX(:,3) is an array of 
+%       element "tags", describing which element "kind" is 
+%       numbered via INDEX(:,2). Element tags are defined 
+%       via a series of constants instantiated in LIBDATA. 
+%       In the default case, where BOUND is not specified, 
+%       all elements in the geometry are assumed to define
+%       the boundaries of enclosed "parts".
+%
 %   MESH.VALUE - [NPxNV] array of "values" associated with
 %       the vertices of the mesh.
 %
+%   MESH.SLOPE - [NPx 1] array of "slopes" associated with
+%       the vertices of the mesh. Slope values define the
+%       gradient-limits ||dh/dx|| used by the Eikonal solver
+%       MARCHE.
 %
 %   .IF. MESH.MSHID == 'ELLIPSOID-MESH':
 %   -----------------------------------
 %
 %   MESH.RADII - [ 3x 1] array of principle ellipsoid radii.
 %
+%   Additionally, entities described in the 'EUCLIDEAN-MESH'
+%   data-type are optionally loaded.
 %
 %   .IF. MESH.MSHID == 'EUCLIDEAN-GRID':
 %   .OR. MESH.MSHID == 'ELLIPSOID-GRID':
@@ -75,6 +94,11 @@ function [mesh] = loadmsh(name)
 %       the dimensions of the grid. NV values are associated 
 %       with each vertex.
 %
+%   MESH.SLOPE - [NMx 1] array of "slopes" associated with
+%       the vertices of the grid, where NM is the product of
+%       the dimensions of the grid. Slope values define the
+%       gradient-limits ||dh/dx|| used by the Eikonal solver 
+%       MARCHE.
 %
 %   See also JIGSAW, SAVEMSH
 %
@@ -82,7 +106,7 @@ function [mesh] = loadmsh(name)
 %-----------------------------------------------------------
 %   Darren Engwirda
 %   github.com/dengwirda/jigsaw-matlab
-%   07-Sep-2018
+%   20-Aug-2019
 %   darren.engwirda@columbia.edu
 %-----------------------------------------------------------
 %
@@ -98,6 +122,10 @@ function [mesh] = loadmsh(name)
     
     kind = 'EUCLIDEAN-MESH';
     
+    if (ffid < +0) 
+    error(['File not found: ', name]) ;
+    end
+
     nver = +0 ;
     ndim = +0 ;
     
@@ -112,6 +140,11 @@ function [mesh] = loadmsh(name)
 
         %-- tokenise line about '=' character
             tstr = regexp(lower(lstr),'=','split');
+           
+            if (length(tstr) ~= +2)
+                warning(['Invalid tag: ',lstr]);
+                continue;
+            end
            
             switch (strtrim(tstr{1}))
             case 'mshid'
@@ -132,7 +165,28 @@ function [mesh] = loadmsh(name)
         %-- read "NDIMS" data
         
                 ndim = str2double(tstr{2}) ;
+                
+            case 'radii'
 
+        %-- read "RADII" data
+
+                stag = regexp(tstr{2},';','split');
+    
+                if (length(stag) == +3)
+                
+                mesh.radii = [ ...
+                    str2double(stag{1}), ...
+                    str2double(stag{2}), ...
+                    str2double(stag{3})  ...
+                    ] ;
+                
+                else
+                
+                warning(['Invalid RADII: ', lstr]);
+                continue;
+                
+                end
+    
             case 'point'
 
         %-- read "POINT" data
@@ -166,6 +220,8 @@ function [mesh] = loadmsh(name)
         
                 idim = str2double(stag{1}) ;
                 cnum = str2double(stag{2}) ;
+
+                ndim = max(ndim,idim);
 
                 data = fscanf(ffid,'%f',cnum) ;
         
@@ -321,33 +377,25 @@ function [mesh] = loadmsh(name)
             
                 mesh.pyra5.index(:,1:5) = ...
                 mesh.pyra5.index(:,1:5) + 1;
-                
+            
             case 'bound'
 
         %-- read "BOUND" data
 
                 nnum = str2double(tstr{2}) ;
 
-                numr = nnum * 2;
+                numr = nnum * 3;
                 
                 data = ...
-            fscanf(ffid,[repmat(ints,1,1),'%i'],numr);
+            fscanf(ffid,[repmat(ints,1,2),'%i'],numr);
                 
-                index = [ ...
-                    data(1:2:end), ...
-                    data(2:2:end)] ;
+                mesh.bound.index = [ ...
+                    data(1:3:end), ...
+                    data(2:3:end), ...
+                    data(3:3:end)] ;
             
-                m = true (size(index, 1),1); 
-                k = 1 ;    
-                while k < size(index,1)
-                    m(k) = false ; 
-                    k = k + index(k, 2) + 1;
-                end
-            
-                mesh.bound.index = index;
-            
-                mesh.bound.index(m,1:1) = ...
-                mesh.bound.index(m,1:1) + 1;
+                mesh.bound.index(:,2:2) = ...
+                mesh.bound.index(:,2:2) + 1;
             
             case 'value'
 
@@ -355,8 +403,17 @@ function [mesh] = loadmsh(name)
 
                 stag = regexp(tstr{2},';','split');
                 
+                if (length(stag) == +2)
+                
                 nnum = str2double(stag{1}) ;
                 vnum = str2double(stag{2}) ;
+               
+                else
+                
+                warning(['Invalid VALUE: ', lstr]);
+                continue;
+                
+                end
                
                 numr = nnum * (vnum+1) ;
                 
@@ -369,8 +426,8 @@ function [mesh] = loadmsh(name)
                 
                 for vpos = +1 : vnum
                 
-                mesh.value(:,vpos) = ...
-                    data(vpos:vnum:end) ;
+                    mesh.value(:,vpos) = ...
+                       data(vpos:vnum:end) ;
 
                 end
                
@@ -380,8 +437,17 @@ function [mesh] = loadmsh(name)
 
                 stag = regexp(tstr{2},';','split');
                 
+                if (length(stag) == +2)
+                
                 nnum = str2double(stag{1}) ;
                 pnum = str2double(stag{2}) ;
+  
+                else
+                
+                warning(['Invalid POWER: ', lstr]);
+                continue;
+                
+                end
                
                 numr = nnum * (pnum+0) ;
                 
@@ -395,10 +461,47 @@ function [mesh] = loadmsh(name)
                 
                 for ppos = +1 : pnum
                 
-                mesh.point.power(:,ppos) = ...
-                    data(ppos:pnum:end) ;
+                    mesh.point.power(:,ppos) = ...
+                       data(ppos:pnum:end) ;
 
                 end
+
+            case 'slope'
+
+        %-- read "SLOPE" data
+
+                stag = regexp(tstr{2},';','split');
+                
+                if (length(stag) == +2)
+                
+                nnum = str2double(stag{1}) ;
+                vnum = str2double(stag{2}) ;
+  
+                else
+                
+                warning(['Invalid SLOPE: ', lstr]);
+                continue;
+                
+                end
+               
+                numr = nnum * (vnum+0) ;
+                
+                fstr = repmat(real,1,vnum) ;
+                
+                data = fscanf( ...
+                  ffid,fstr(1:end-1),numr) ;
+                
+                mesh.slope = ...
+                    zeros(nnum, vnum) ;
+                
+                for ppos = +1 : vnum
+                
+                    mesh.slope(:,ppos) = ...
+                       data(ppos:vnum:end) ;
+
+                end
+
+
                 
             end
                        
@@ -406,14 +509,72 @@ function [mesh] = loadmsh(name)
            
         else
     %-- if(~ischar(lstr)) //i.e. end-of-file
-            break ;
+            break;
         end
         
     end
     
     mesh.mshID = kind ;
     mesh.fileV = nver ;
-    
+
+    if (ndim > +0)
+        switch (lower(mesh.mshID))
+            case{'euclidean-grid', ...
+                 'ellipsoid-grid'}
+                if (inspect(mesh,'value') && ...
+                    inspect(mesh,'point') )
+
+                if     (ndim == +2)
+
+            %-- reshape data to 2-dim. array
+                mesh.value = reshape( ...
+                    mesh.value, ...
+                length(mesh.point.coord{2}), ...
+                length(mesh.point.coord{1}), ...
+                    [] ) ;
+
+                elseif (ndim == +3)
+
+            %-- reshape data to 3-dim. array
+                mesh.value = reshape( ...
+                    mesh.value, ...
+                length(mesh.point.coord{2}), ...            
+                length(mesh.point.coord{1}), ...
+                length(mesh.point.coord{3}), ...
+                    [] ) ;
+
+                end
+
+                end
+
+                if (inspect(mesh,'slope') && ...
+                    inspect(mesh,'point') )
+
+                if     (ndim == +2)
+
+            %-- reshape data to 2-dim. array
+                mesh.slope = reshape( ...
+                    mesh.slope, ...
+                length(mesh.point.coord{2}), ...
+                length(mesh.point.coord{1}), ...
+                    [] ) ;
+
+                elseif (ndim == +3)
+
+            %-- reshape data to 3-dim. array
+                mesh.slope = reshape( ...
+                    mesh.slope, ...
+                length(mesh.point.coord{2}), ...            
+                length(mesh.point.coord{1}), ...
+                length(mesh.point.coord{3}), ...
+                    [] ) ;
+
+                end
+
+                end
+        end
+    end
+
     fclose(ffid) ;
     
     catch err
@@ -428,5 +589,6 @@ function [mesh] = loadmsh(name)
     end
 
 end
+
 
 
