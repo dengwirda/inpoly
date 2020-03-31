@@ -1,4 +1,4 @@
-function [stat,bnds] = inpoly2(varargin)
+function [STAT,BNDS] = inpoly2(varargin)
 %INPOLY2 compute "points-in-polygon" queries.  
 %   [STAT] = INPOLY2(VERT,NODE,EDGE) returns the "inside/ou-
 %   tside" status for a set of vertices VERT and a polygon 
@@ -51,7 +51,7 @@ function [stat,bnds] = inpoly2(varargin)
 
 %   Darren Engwirda : 2017 --
 %   Email           : de2363@columbia.edu
-%   Last updated    : 27/10/2018
+%   Last updated    : 31/03/2020
 
 %---------------------------------------------- extract args
     node = []; edge = []; vert = []; 
@@ -102,6 +102,18 @@ function [stat,bnds] = inpoly2(varargin)
             'Invalid EDGE input array.') ;
     end
 
+    STAT = false(size(vert,1),1) ;
+    BNDS = false(size(vert,1),1) ;
+
+%----------------------------------- prune points using bbox
+    mask = ...
+    vert(:,1) >= min (node(:,1)) & ...
+    vert(:,1) <= max (node(:,1)) & ...
+    vert(:,2) >= min (node(:,2)) & ...
+    vert(:,2) <= max (node(:,2)) ;
+ 
+    vert = vert(mask, :) ;
+
 %-------------- flip to ensure the y-axis is the "long" axis
     vmin = min(vert,[],1);
     vmax = max(vert,[],1);
@@ -121,7 +133,7 @@ function [stat,bnds] = inpoly2(varargin)
          
     edge(swap,[1,2]) = ...
         edge(swap,[2,1]) ;    
-       
+  
    [~,ivec] = ...
         sort(vert(:,+2)) ;
     vert = vert (ivec,:) ;
@@ -161,6 +173,9 @@ function [stat,bnds] = inpoly2(varargin)
     
     stat(ivec) = stat ;
     bnds(ivec) = bnds ;
+
+    STAT(mask) = stat ;
+    BNDS(mask) = bnds ;
 
 end
 
