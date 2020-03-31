@@ -1,6 +1,6 @@
-## `INPOLY: Fast point-in-polygon queries in MATLAB`
+## `INPOLY: Fast point(s)-in-polygon queries in MATLAB`
 
-A fast 'point-in-polygon' routine for <a href="http://www.mathworks.com">`MATLAB`</a> / <a href="https://www.gnu.org/software/octave">`OCTAVE`</a>.
+A fast 'point(s)-in-polygon' routine for <a href="http://www.mathworks.com">`MATLAB`</a> / <a href="https://www.gnu.org/software/octave">`OCTAVE`</a>.
 
 `INPOLY` returns the "inside/outside" status for a set of vertices `VERT` and a general polygon (`PSLG`) embedded in the two-dimensional plane. General non-convex and multiply-connected polygonal regions can be handled. `INPOLY` is intended as a (very) fast replacement for `MATLAB`'s default `INPOLYGON` routine.
 
@@ -12,7 +12,7 @@ A fast 'point-in-polygon' routine for <a href="http://www.mathworks.com">`MATLAB
 
 This implementation seeks to improve these bounds. Query points are sorted by `y-value` and candidate intersection sets are determined via binary-search. Given a configuration with `N` test points, `M` edges and an average point-edge 'overlap' of `H`, the overall complexity scales like `O(M*H + M*LOG(N) + N*LOG(N))`, where `O(N*LOG(N))` operations are required for the initial sorting, `O(M*LOG(N))` operations are required for the set of binary-searches, and `O(M*H)` operations are required for the actual intersection tests. `H` is typically small on average, such that `H << N`. Overall, this leads to fast `O((N+M)*LOG(N))` complexity for average cases.
 
-### `Starting Out!`
+### `Quickstart`
 
 After downloading and unzipping the current <a href="https://github.com/dengwirda/inpoly/archive/master.zip">repository</a>, navigate to the installation directory within <a href="http://www.mathworks.com">`MATLAB`</a> / <a href="https://www.gnu.org/software/octave">`OCTAVE`</a> and run the set of examples contained in `polydemo.m`:
 ````
