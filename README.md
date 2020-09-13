@@ -28,3 +28,6 @@ This program may be freely redistributed under the condition that the copyright 
 
 `DISCLAIMER`:  Neither I nor the University of Sydney warrant this code in any way whatsoever. This code is provided "as-is" to be used at your own risk.
 
+### `References`
+
+`[1]` - J. Kepner, D. Engwirda, V. Gadepally, C. Hill, T. Kraska, M. Jones, A. Kipf, L. Milechin, N. Vembar: <a href="https://arxiv.org/abs/2005.03156">Fast Mapping onto Census Blocks</a>, IEEE HPEC, 2020.
