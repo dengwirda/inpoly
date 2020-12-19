@@ -7,8 +7,8 @@ function polydemo(varargin)
 %   See also INPOLY2, INPOLYGON
 
 %   Darren Engwirda : 2018 --
-%   Email           : darren.engwirda@columbia.edu
-%   Last updated    : 28/10/2018
+%   Email           : d.engwirda@gmail.com
+%   Last updated    : 19/12/2020
 
     if (nargin>=1) 
         id = varargin{1}; 
@@ -22,6 +22,10 @@ function polydemo(varargin)
         case 2, demo2;
         case 3, demo3;
         
+        case-1, test1;
+        case-2, test2;
+        case-3, test3;
+
         otherwise
     error('polydemo:invalidInput','Invalid demo selection.');
     end
@@ -105,7 +109,7 @@ function demo2
     scal = max (node,[],1) ...
          - min (node,[],1) ;
 
-    rpts = rand(2500,2) ;
+    rpts = rand(7500,2) ;
     rpts(:,1) = ...
     1.10*scal(1)*(rpts(:,1)-.5)+half(1);
     rpts(:,2) = ...
@@ -187,6 +191,127 @@ function demo3
     plot(xpos( stat),ypos( stat),'b.', ...
         'markersize',14) ;
     plot(xpos( bnds),ypos( bnds),'ks') ;
+
+end
+
+%-----------------------------------------------------------
+
+function test1
+%TEST-1: check "empty" case, from @vbandaruk
+
+    filename = mfilename('fullpath');
+    filepath = fileparts( filename );
+
+    addpath([filepath,'/mesh-file']);
+
+    node = [
+        4,0         % outer nodes
+        8,4
+        4,8
+        0,4
+        3,3         % inner nodes
+        5,3
+        5,5
+        3,5
+        ] ;
+    edge = [
+        1,2         % outer edges
+        2,3
+        3,4
+        4,1
+        5,6         % inner edges
+        6,7
+        7,8
+        8,5
+        ] ;
+
+   [xpos,ypos] = meshgrid(-1.:0.1:+9.) ;
+    xpos = xpos(:) + 12. ;
+    ypos = ypos(:) ;
+
+   [stat,bnds] = ...
+        inpoly2([xpos,ypos],node,edge) ; 
+
+    figure;
+    plot(xpos(~stat),ypos(~stat),'r.', ...
+        'markersize',14) ;
+    axis equal off; hold on;
+    plot(xpos( stat),ypos( stat),'b.', ...
+        'markersize',14) ;
+    plot(xpos( bnds),ypos( bnds),'ks') ;
+    plot(node(:, 1), node(:, 2), 'mo') ;
+
+end
+
+function test2
+%TEST-2: check "on-bnds" cases, from @husdemir
+
+    px=[+0.0 -1.0 +0.5 +2.0 +3.0 +0.0]';
+    py=[-3.0 +1.0 +2.0 +3.0 +2.0 -3.0]';
+
+    dx=0.1;
+    x=linspace(min(px)-dx,max(px)+dx,200);
+    y=linspace(min(py)-dx,max(py)+dx,400);
+    [x,y]=meshgrid(x,y);
+    x=x(:);
+    y=y(:);
+
+    plot(px,py,'b-','linewidth',4)
+    hold on; axis equal
+    plot(px,py,'bo','markersize',18)
+    plot(x,y,'r.')
+
+    [in,on] = inpoly2([x,y],[px,py],[],1e-2);
+
+    in2=in & ~on;
+
+    plot(x(in2),y(in2),'b.')
+    hold on; axis equal
+    plot(x(on),y(on),'ks')
+    plot(px,py,'g-','linewidth',4)
+    plot(px,py,'go','markersize',18)
+
+end
+
+function test3
+%TEST-3: check domain inc. various xy "turns"
+
+    node = [
+        0,0
+        4,0
+        4,2
+        6,2
+        6,0
+        8,0
+        8,6
+        6,6
+        6,4
+        4,4
+        4,8
+        2,8
+        2,6
+        0,6
+        0,4
+        2,4
+        2,2
+        0,2
+        ] ;
+
+   [xpos,ypos] = meshgrid(-1.:0.1:+9.) ;
+    xpos = xpos(:) ;
+    ypos = ypos(:) ;
+
+   [stat,bnds] = ...
+        inpoly2([xpos,ypos],node) ; 
+
+    figure;
+    plot(xpos(~stat),ypos(~stat),'r.', ...
+        'markersize',14) ;
+    axis equal off; hold on;
+    plot(xpos( stat),ypos( stat),'b.', ...
+        'markersize',14) ;
+    plot(xpos( bnds),ypos( bnds),'ks') ;
+    plot(node(:, 1), node(:, 2), 'mo') ;
 
 end
 

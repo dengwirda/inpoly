@@ -6,10 +6,10 @@ function [stat,bnds] = ...
 %mber comparisons; break when the local y-range is exceeded.
 
 %   Darren Engwirda : 2017 --
-%   Email           : de2363@columbia.edu
-%   Last updated    : 27/10/2018
+%   Email           : d.engwirda@gmail.com
+%   Last updated    : 19/12/2020
 
-    feps = fTOL * lbar ^ +2 ;
+    feps = fTOL * lbar ^ +1 ;
     veps = fTOL * lbar ^ +1 ;
 
     nvrt = size (vert,1) ;
@@ -34,14 +34,16 @@ function [stat,bnds] = ...
         xmin = min(xone,xtwo) ;
         xmax = max(xone,xtwo) ;
         
-        xmax = xmax + veps;      
-        
+        xmin = xmin - veps;
+        xmax = xmax + veps;
         ymin = yone - veps;
         ymax = ytwo + veps;
         
         ydel = ytwo - yone;
         xdel = xtwo - xone;
 
+        edel = abs(xdel) + ydel ;
+        
     %------------------------------- find top VERT(:,2)<YONE
         ilow = +1; iupp = nvrt;
         
@@ -78,7 +80,7 @@ function [stat,bnds] = ...
                     mul2 = ...
                     xdel * (ypos - yone) ;
                     
-                    if (feps >= ...
+                    if ((feps * edel) >= ...
                         abs(mul2 - mul1) )
                     
                 %------------------- BNDS -- approx. on edge

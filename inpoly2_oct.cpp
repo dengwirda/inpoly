@@ -4,8 +4,8 @@
 
 //----------------------------------------------------------
 //  Darren Engwirda : 2017 --
-//  Email           : de2363@columbia.edu
-//  Last updated    : 27/10/2018
+//  Email           : d.engwirda@gmail.com
+//  Last updated    : 19/12/2020
 //----------------------------------------------------------
 
 #include <octave/oct.h>
@@ -58,8 +58,7 @@ DEFUN_DLD (inpoly2_oct, args, ,
 
 //---------------------------------- loop over polygon edges
     double const veps = fTOL * lbar ;
-    double const feps = fTOL * lbar 
-                             * lbar ;
+    double const feps = fTOL * lbar ;
     
     octave_idx_type epos ;
     for (epos = +0; epos != nedg; ++epos)
@@ -80,6 +79,7 @@ DEFUN_DLD (inpoly2_oct, args, ,
         double xmax = xone < xtwo 
                     ? xtwo : xone ;               
      
+        xmin-= veps ;
         xmax+= veps ;
         
         double ymin = yone - veps ;
@@ -88,6 +88,9 @@ DEFUN_DLD (inpoly2_oct, args, ,
         double ydel = ytwo - yone ;
         double xdel = xtwo - xone ;
             
+        double edel = 
+            std::abs(xdel) + ydel ;
+
     //------------------------------ find top VERT(:,2)<YONE
         octave_idx_type ilow = +0 ; 
         octave_idx_type iupp = 
@@ -136,7 +139,7 @@ DEFUN_DLD (inpoly2_oct, args, ,
                     double mul2 =
                     xdel * (ypos - yone) ;
                     
-                    if (feps >=
+                    if ((feps * edel) >=
                     std::abs(mul2 - mul1) )
                     {             // BNDS -- approx. on edge
                         bnds(vpos)= true ;
