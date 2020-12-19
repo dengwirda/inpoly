@@ -50,8 +50,8 @@ function [STAT,BNDS] = inpoly2(varargin)
 %   test.
 
 %   Darren Engwirda : 2017 --
-%   Email           : de2363@columbia.edu
-%   Last updated    : 31/03/2020
+%   Email           : d.engwirda@gmail.com
+%   Last updated    : 19/12/2020
 
 %---------------------------------------------- extract args
     node = []; edge = []; vert = []; 
@@ -106,21 +106,29 @@ function [STAT,BNDS] = inpoly2(varargin)
     BNDS = false(size(vert,1),1) ;
 
 %----------------------------------- prune points using bbox
+    nmin = min(node,[],1);
+    nmax = max(node,[],1);
+    ddxy = nmax - nmin ;
+    
+    lbar = sum(ddxy) / 2.;
+    
+    veps = fTOL * lbar ;
+
     mask = ...
-    vert(:,1) >= min (node(:,1)) & ...
-    vert(:,1) <= max (node(:,1)) & ...
-    vert(:,2) >= min (node(:,2)) & ...
-    vert(:,2) <= max (node(:,2)) ;
+    vert(:,1) >= min (node(:,1)) - veps & ...
+    vert(:,1) <= max (node(:,1)) + veps & ...
+    vert(:,2) >= min (node(:,2)) - veps & ...
+    vert(:,2) <= max (node(:,2)) + veps ;
  
     vert = vert(mask, :) ;
+
+    if (isempty(vert)), return; end
 
 %-------------- flip to ensure the y-axis is the "long" axis
     vmin = min(vert,[],1);
     vmax = max(vert,[],1);
-    ddxy = vmax - vmin ;
-    
-    lbar = sum(ddxy) / 2.;
-    
+    ddxy = vmax - vmin ;    
+
     if (ddxy(1) > ddxy(2))
     vert = vert(:,[2,1]) ;
     node = node(:,[2,1]) ;
